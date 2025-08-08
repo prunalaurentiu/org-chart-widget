@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Org-Chart Demo</title>
+
+  <!-- 1) Stylesheet (v1.0.0) -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/gh/prunalaurentiu/org-chart-widget@v1.0.0/dist/org-chart.css"
+  />
+</head>
+<body>
+
+  <!-- 2) Control Panel & Chart Container -->
+  <div id="control_panel"
+       style="position:absolute; top:10px; left:10px; z-index:1000;
+              background:#fff; padding:8px; border:1px solid #ccc; border-radius:4px;">
+    <label for="layer_filter">Layer:</label>
+    <select id="layer_filter">
+      <option value="all">All</option>
+      <option value="0">Row 1</option>
+      <option value="1">Row 2</option>
+      <option value="2">Row 3</option>
+      <option value="3">Row 4</option>
+    </select>
+    <button id="expand_btn">Collapse</button>
+    <button id="collapse_btn">Expand</button>
+  </div>
+  <div id="chart_outer"
+       style="overflow-x:auto; width:100%; box-sizing:border-box;
+              padding:0 20px; margin-top:60px;">
+    <div id="chart_div"
+         style="display:flex; align-items:flex-start; flex-wrap:nowrap;">
+      <!-- Chart nodes will appear here -->
+    </div>
+  </div>
+
+  <!-- 3) PapaParse for CSV parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+
+  <!-- 4) Org-Chart JS (v1.0.0) -->
+  <script src="https://cdn.jsdelivr.net/gh/prunalaurentiu/org-chart-widget@v1.0.0/dist/org-chart.js"></script>
+</body>
+</html>

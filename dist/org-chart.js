@@ -1,199 +1,224 @@
-// 1️⃣ Globals
-let rawData = [];
-const idToRecord = {};
-const expandedMap = {};
-let depthMap = {};
+document.addEventListener('DOMContentLoaded', () => {
+  let rawData = [], idToRecord = {}, expandedMap = {}, depthMap = {}, ceoColorMap = {};
 
-// 2️⃣ Helper for indirect counts
-function getDescendantIds(id) {
-  const direct = rawData
-    .filter(r => r['Supervisor ID'] && r['Supervisor ID'].trim() === id)
-    .map(r => r['Employee ID'].trim());
-  return direct.reduce((all, cid) => {
-    all.push(cid);
-    all.push(...getDescendantIds(cid));
-    return all;
-  }, []);
-}
+  // 1) Load & parse CSV via jsDelivr CDN from your GitHub repo
+  const csvUrl = 'https://cdn.jsdelivr.net/gh/prunalaurentiu/org-chart-widget@main/org-chart-dept.csv';
+  Papa.parse(csvUrl, {
+    download: true,
+    header: true,
+    skipEmptyLines: true,
+    complete: ({ data }) => {
+      rawData = data;
+      rawData.forEach(r => {
+        const id = r['Employee ID']?.trim();
+        if (id) idToRecord[id] = r;
+      });
+      computeDepthMap();
+      buildCeoColorMap();
 
-// 3️⃣ Compute depthMap via BFS
-function computeDepthMap() {
-  depthMap = {};
-  const roots = getRoots();
-  const queue = roots.map(id => ({ id, depth: 0 }));
-  while (queue.length) {
-    const { id, depth } = queue.shift();
-    depthMap[id] = depth;
-    rawData
-      .filter(r => r['Supervisor ID'] && r['Supervisor ID'].trim() === id)
-      .map(r => r['Employee ID'].trim())
-      .forEach(childId => queue.push({ id: childId, depth: depth + 1 }));
+      // auto-expand depth 0 & 1 (Actionariat & CEO)
+      Object.entries(depthMap).forEach(([id,d]) => {
+        if ((d === 0 || d === 1) &&
+            rawData.some(r => r['Supervisor ID']?.trim() === id)) {
+          expandedMap[id] = true;
+        }
+      });
+
+      drawTree();
+      setupControls();
+    }
+  });
+
+  // ── Helpers ─────────────────────────────────────────────────────
+  function getDescendantIds(id) {
+    const direct = rawData
+      .filter(r => r['Supervisor ID']?.trim() === id)
+      .map(r => r['Employee ID'].trim());
+    return direct.reduce((all, cid) => {
+      all.push(cid, ...getDescendantIds(cid));
+      return all;
+    }, []);
   }
-}
 
-// 4️⃣ Load & parse CSV, then initialize
-function init() {
-  Papa.parse(
-    'https://gist.githubusercontent.com/prunalaurentiu/18b83b6277f9962fe3c2de0b1006a98a/raw/5795d077f26cbc84b49255677f54e449d60aaae9/V1%2520usable.txt',
-    {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: ({ data }) => {
-        rawData = data;
-        rawData.forEach(r => {
-          const id = r['Employee ID'] && r['Employee ID'].trim();
-          if (id) idToRecord[id] = r;
-        });
-        computeDepthMap();
+  function computeDepthMap() {
+    depthMap = {};
+    const roots = rawData
+      .filter(r => !r['Supervisor ID']?.trim())
+      .map(r => r['Employee ID'].trim());
+    const queue = roots.map(id => ({ id, depth: 0 }));
+    while (queue.length) {
+      const { id, depth } = queue.shift();
+      depthMap[id] = depth;
+      rawData
+        .filter(r => r['Supervisor ID']?.trim() === id)
+        .forEach(r => queue.push({ id: r['Employee ID'].trim(), depth: depth + 1 }));
+    }
+  }
+
+  function buildCeoColorMap() {
+    const palette = [
+      '#e57373','#64b5f6','#81c784','#ffb74d','#ba68c8',
+      '#4db6ac','#ffd54f','#90a4ae','#ff8a65'
+    ];
+    const ceo = rawData.find(r => {
+      const rl = (r.Role||'').trim().toLowerCase();
+      return rl === 'ceo' || rl.includes('chief executive officer');
+    });
+    if (!ceo) return;
+    const cid = ceo['Employee ID'].trim();
+    rawData
+      .filter(r => r['Supervisor ID']?.trim() === cid)
+      .map(r => r['Employee ID'].trim())
+      .forEach((id, i) => ceoColorMap[id] = palette[i % palette.length]);
+  }
+
+  function getRoots() {
+    return rawData
+      .filter(r => !r['Supervisor ID']?.trim())
+      .map(r => r['Employee ID'].trim())
+      .sort((a, b) =>
+        idToRecord[a].Name.trim().localeCompare(idToRecord[b].Name.trim())
+      );
+  }
+
+  // ── Draw & center ─────────────────────────────────────────────
+  function drawTree() {
+    const outer = document.getElementById('chart_outer'),
+          cont  = document.getElementById('chart_div');
+    cont.innerHTML = '';
+    getRoots().forEach(root => cont.appendChild(createNode(root)));
+    setTimeout(() => {
+      const first = cont.querySelector('.wrapper');
+      if (first) {
+        outer.scrollLeft =
+          first.offsetLeft + first.offsetWidth/2 - outer.clientWidth/2;
+      }
+    }, 0);
+  }
+
+  // ── Create a node ─────────────────────────────────────────────
+  function createNode(id) {
+    const rec   = idToRecord[id],
+          depth = depthMap[id] || 0,
+          isRoot= depth === 0;
+    const direct   = rawData.filter(r => r['Supervisor ID']?.trim() === id),
+          dc       = direct.length,
+          ic       = getDescendantIds(id).length - dc,
+          expanded = !!expandedMap[id],
+          willEx   = !expanded;
+
+    // branch color for depth ≥2
+    let branchColor = null;
+    if (depth >= 2) {
+      let cur = id;
+      while ((depthMap[cur] || 0) > 2) {
+        cur = idToRecord[cur]['Supervisor ID'].trim();
+      }
+      branchColor = ceoColorMap[cur] || null;
+    }
+
+    const wrap = document.createElement('div');
+    wrap.className = `wrapper depth-${depth}`;
+    wrap.dataset.id = id;
+
+    const node = document.createElement('div');
+    node.className = 'node';
+
+    // LEFT avatar if Image Path present
+    const left = rec['Image Path']?.trim();
+    if (left) {
+      const imgL = document.createElement('img');
+      imgL.className = 'avatar-left';
+      imgL.src       = left;
+      node.appendChild(imgL);
+    }
+
+    // INFO card
+    const info = document.createElement('div');
+    info.className = 'info';
+    let bg = '#fff', br = 'transparent';
+    if (depth === 0) {
+      bg = 'rgba(81,45,168,0.15)'; br = 'rgba(81,45,168,0.5)';
+    } else if (depth === 1) {
+      bg = 'rgba(198,40,40,0.15)'; br = 'rgba(198,40,40,0.5)';
+    } else if (branchColor) {
+      bg = hexToRgba(branchColor, 0.15); br = hexToRgba(branchColor, 0.5);
+    }
+    info.style.backgroundColor = bg;
+    info.style.border = `4px solid ${br}`;
+    info.innerHTML = `
+      <div><strong>${rec.Name.trim()}</strong></div>
+      <div><em>${rec.Role.trim()}</em></div>
+      <div class="report-count">${dc} direct report${dc!==1?'s':''}</div>
+      <div class="report-count">${ic} indirect report${ic!==1?'s':''}</div>
+    `;
+    node.appendChild(info);
+
+    // TOGGLE
+    if (dc > 0) {
+      const t = document.createElement('span');
+      t.className = 'toggle';
+      t.textContent = expanded ? '–' : '+';
+      t.onclick = () => {
+        expandedMap[id] = willEx;
         drawTree();
-        setupControls();
+        setTimeout(() => {
+          const w = document.querySelector(
+            `#chart_div .wrapper[data-id="${id}"]`
+          );
+          if (w) w.scrollIntoView({ behavior: 'smooth', inline: 'center' });
+        }, 0);
+      };
+      node.appendChild(t);
+    }
+
+    // RIGHT avatar for Actionariat only
+    if (isRoot) {
+      const right = rec['Image Path Right']?.trim();
+      if (right) {
+        const imgR = document.createElement('img');
+        imgR.className = 'avatar-right';
+        imgR.src       = right;
+        node.appendChild(imgR);
       }
     }
-  );
-}
 
-// 5️⃣ Get top-level roots (duplicate Actionariat twice)
-function getRoots() {
-  const roots = rawData
-    .filter(r => !r['Supervisor ID'] || !r['Supervisor ID'].trim())
-    .map(r => r['Employee ID'].trim());
-  const action = roots.filter(id => idToRecord[id].Name.trim() === 'Actionariat');
-  const others = roots.filter(id => idToRecord[id].Name.trim() !== 'Actionariat');
-  return action.flatMap(id => [id, id]).concat(others);
-}
+    wrap.appendChild(node);
 
-// 6️⃣ Render the chart
-function drawTree() {
-  const container = document.getElementById('chart_div');
-  container.innerHTML = '';
-  getRoots().forEach(rootId => container.appendChild(createNode(rootId)));
-}
+    // CHILDREN
+    if (dc > 0) {
+      const ch = document.createElement('div');
+      ch.className = 'children';
+      ch.style.display = expanded ? 'flex' : 'none';
+      direct.sort((a,b) => a.Name.trim().localeCompare(b.Name.trim()))
+            .forEach(r => ch.appendChild(createNode(r['Employee ID'].trim())));
+      wrap.appendChild(ch);
+    }
 
-// 7️⃣ Create a node + its direct-children row
-function createNode(id) {
-  const rec = idToRecord[id];
-  const depth = depthMap[id];
-  const isRoot = depth === 0;
-
-  // wrapper + depth class
-  const wrapper = document.createElement('div');
-  wrapper.className = 'wrapper';
-  wrapper.classList.add(`depth-${depth}`);
-  wrapper.dataset.id = id;
-
-  // direct reports sorted
-  const direct = rawData
-    .filter(r => r['Supervisor ID'] && r['Supervisor ID'].trim() === id)
-    .sort((a, b) => a.Name.trim().localeCompare(b.Name.trim()));
-  const dc = direct.length;
-  const ic = getDescendantIds(id).length - dc;
-  const expanded = !!expandedMap[id];
-  const willExpand = !expanded;
-
-  // ── NODE BOX ────────────────────────────────
-  const node = document.createElement('div');
-  node.className = 'node';
-
-  // [+]/[-] toggle
-  if (dc > 0) {
-    const t = document.createElement('span');
-    t.className = 'toggle';
-    t.textContent = expanded ? '[+]' : '[-]';
-    t.onclick = () => {
-      expandedMap[id] = willExpand;
-      drawTree();
-      if (willExpand) {
-        setTimeout(() => {
-          const kids = document.querySelector(
-            `#chart_div .wrapper[data-id="${id}"] > .children`
-          );
-          if (kids) kids.scrollIntoView({ behavior: 'smooth', inline: 'center' });
-        }, 0);
-      }
-    };
-    node.appendChild(t);
-  } else {
-    const spacer = document.createElement('span');
-    spacer.style.cssText = 'display:inline-block;width:20px;';
-    node.appendChild(spacer);
+    return wrap;
   }
 
-  // left avatar
-  if (rec['Image URL left'] && rec['Image URL left'].trim()) {
-    const imgL = document.createElement('img');
-    imgL.className = 'avatar-left';
-    imgL.src = rec['Image URL left'].trim();
-    node.appendChild(imgL);
-  }
-
-  // info block
-  const info = document.createElement('div');
-  info.className = 'info';
-  const nameEl = document.createElement('div');
-  nameEl.innerHTML = `<strong>${rec.Name.trim()}</strong>`;
-  const roleEl = document.createElement('div');
-  roleEl.innerHTML = `<em style="font-size:0.85em;">${rec.Role.trim()}</em>`;
-  const dEl = document.createElement('div');
-  dEl.className = 'report-count';
-  dEl.textContent = `${dc} direct report${dc !== 1 ? 's' : ''}`;
-  const iEl = document.createElement('div');
-  iEl.className = 'report-count';
-  iEl.textContent = `${ic} indirect report${ic !== 1 ? 's' : ''}`;
-  info.append(nameEl, roleEl, dEl, iEl);
-  node.appendChild(info);
-
-  // right avatar (root only)
-  if (isRoot && rec['Image URL right'] && rec['Image URL right'].trim()) {
-    const imgR = document.createElement('img');
-    imgR.className = 'avatar-right';
-    imgR.src = rec['Image URL right'].trim();
-    node.appendChild(imgR);
-  }
-
-  wrapper.appendChild(node);
-
-  // ── children row ────────────────────────────
-  if (dc > 0) {
-    const ch = document.createElement('div');
-    ch.className = 'children';
-    ch.style.display = willExpand ? 'flex' : 'none';
-    direct.forEach(r => ch.appendChild(createNode(r['Employee ID'].trim())));
-    wrapper.appendChild(ch);
-  }
-
-  return wrapper;
-}
-
-// 8️⃣ Expand/Collapse per layer filter
-function applyLayerAction(expand) {
-  const filter = document.getElementById('layer_filter').value;
-  if (filter === 'all') {
+  // ── Controls ─────────────────────────────────────────────────
+  function applyLayerAction(expand) {
+    const f = document.getElementById('layer_filter').value;
     rawData.forEach(r => {
-      const id = r['Employee ID'] && r['Employee ID'].trim();
-      if (id && rawData.some(x => x['Supervisor ID'] && x['Supervisor ID'].trim() === id)) {
-        expandedMap[id] = expand;
+      const i = r['Employee ID']?.trim();
+      if (!i) return;
+      const hasKids = rawData.some(x => x['Supervisor ID']?.trim() === i);
+      if (f === 'all' || (hasKids && depthMap[i] === +f)) {
+        expandedMap[i] = expand;
       }
     });
-  } else {
-    const layer = parseInt(filter, 10);
-    Object.entries(depthMap).forEach(([id, d]) => {
-      if (
-        d === layer &&
-        rawData.some(r => r['Supervisor ID'] && r['Supervisor ID'].trim() === id)
-      ) {
-        expandedMap[id] = expand;
-      }
-    });
+    drawTree();
   }
-  drawTree();
-}
+  function setupControls() {
+    document.getElementById('expand_btn').onclick   = () => applyLayerAction(true);
+    document.getElementById('collapse_btn').onclick = () => applyLayerAction(false);
+  }
 
-// 9️⃣ Controls wiring
-function setupControls() {
-  document.getElementById('expand_btn').onclick = () => applyLayerAction(true);
-  document.getElementById('collapse_btn').onclick = () => applyLayerAction(false);
-}
-
-// 🔟 Kick everything off
-document.addEventListener('DOMContentLoaded', init);
+  // Utility: hex → rgba
+  function hexToRgba(hex, a) {
+    const [r,g,b] = hex.replace('#','').match(/.{2}/g).map(x => parseInt(x,16));
+    return `rgba(${r},${g},${b},${a})`;
+  }
+});

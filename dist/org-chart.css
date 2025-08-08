@@ -13,7 +13,7 @@ body {
   font-size: 14px;
 }
 
-/* ─── outer/inner chart ───────────────────────── */
+/* ─── Chart containers ───────────────────────── */
 #chart_outer {
   overflow-x: auto;
   width: 100%;
@@ -31,8 +31,9 @@ body {
   flex: 0 0 auto;
   position: relative;
   padding-top: 24px;
-  margin: 0 24px;
+  margin: 0 24px 24px;
   text-align: center;
+  overflow: visible;
 }
 .wrapper::before {
   content: "";
@@ -42,79 +43,79 @@ body {
   border-left: 1px solid #ddd;
 }
 
-/* ─── node box ─────────────────────────────────── */
+/* ─── node container ──────────────────────────── */
 .node {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  position: relative;
+  overflow: visible;
+}
+
+/* ─── hexagonal avatars ───────────────────────── */
+.node img.avatar-left,
+.node img.avatar-right {
+  width: 84px;
+  height: 84px;
+  flex-shrink: 0;
+  object-fit: cover;
+  clip-path: polygon(
+    25% 0%, 75% 0%,
+    100% 50%,
+    75% 100%, 25% 100%,
+    0% 50%
+  );
+  background-color: #fff;
+  border: 4px solid transparent;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  z-index: 2;
+}
+/* overlap 30% into the card */
+.node img.avatar-left { margin-right: calc(-84px * 0.30); }
+.node img.avatar-right { margin-left: calc(-84px * 0.30); }
+.node img.avatar-left:hover,
+.node img.avatar-right:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+/* ─── info card ────────────────────────────────── */
+.node .info {
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.1);
   padding: 12px 16px;
-  display: inline-flex;
-  align-items: center;
-  transition: box-shadow 0.2s ease;
-  white-space: nowrap;
-}
-.node:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-/* toggle [+]/[-] */
-.node .toggle {
-  order: 3;
-  margin-left: auto;
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  user-select: none;
-}
-
-/* left avatar */
-.node img.avatar-left {
-  order: 0;
-  width: 48px;
-  height: 48px;
-  border-radius: 4px;
-  object-fit: cover;
-  margin-right: 12px;
-}
-
-/* info block centered */
-.node .info {
-  order: 1;
-  text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   line-height: 1.3;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  transition: box-shadow 0.2s ease;
+  min-height: 84px;
+  border: 4px solid transparent;
 }
-.node .info > div:first-child { /* Name */
-  font-weight: 500;
-  margin-bottom: 4px;
+.node .info:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
-.node .info > div:nth-child(2) { /* Role */
-  font-weight: 700;
-  font-size: 13px;
-  color: #555;
-  margin-bottom: 6px;
+.node .info > div:first-child { font-weight: 500; margin-bottom: 4px; }
+.node .info > div:nth-child(2) { font-weight: 700; font-size: 13px; color: #555; margin-bottom: 6px; }
+.report-count { font-size: 12px; color: #777; margin-top: 2px; }
+
+/* ─── toggle under the card ────────────────────── */
+.node .toggle {
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px;
+  cursor: pointer;
+  user-select: none;
+  z-index: 3;
 }
 
-/* direct/indirect counts */
-.report-count {
-  font-size: 12px;
-  color: #777;
-  margin-top: 2px;
-}
-
-/* right avatar (root only) */
-.node img.avatar-right {
-  order: 2;
-  width: 48px;
-  height: 48px;
-  border-radius: 4px;
-  object-fit: cover;
-  margin-left: 12px;
-}
-
-/* children row */
+/* ─── children row ───────────────────────────── */
 .children {
   display: flex;
   justify-content: center;
@@ -129,8 +130,21 @@ body {
   border-top: 1px solid #ddd;
 }
 
-/* ─── Pastel color coding by depth ───────────── */
-.wrapper.depth-0 .node { background: #f5f7fa; border-left: 4px solid #cfd8dc; }
-.wrapper.depth-1 .node { background: #e8f0fb; border-left: 4px solid #90caf9; }
-.wrapper.depth-2 .node { background: #f0f8ed; border-left: 4px solid #a5d6a7; }
-.wrapper.depth-3 .node { background: #fff9e6; border-left: 4px solid #ffe082; }
+/* ─── Actionariat (depth-0) full border & bg ─── */
+.wrapper.depth-0 .info {
+  background-color: rgba(81,45,168,0.15); /* Indigo700 @15% */
+  border: 4px solid rgba(81,45,168,0.5);    /* Indigo700 @50% */
+}
+
+/* ─── CEO (depth-1) full border & bg ─────────── */
+.wrapper.depth-1 .info {
+  background-color: rgba(198,40,40,0.15); /* Red800 @15% */
+  border: 4px solid rgba(198,40,40,0.5);   /* Red800 @50% */
+}
+
+/* ─── hide right avatar on non-root ─────────── */
+.wrapper.depth-1 img.avatar-right,
+.wrapper.depth-2 img.avatar-right,
+.wrapper.depth-3 img.avatar-right {
+  display: none;
+}

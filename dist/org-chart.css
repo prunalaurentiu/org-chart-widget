@@ -1,0 +1,136 @@
+/* ─── Global font ─────────────────────────────── */
+body {
+  font-family: "Roboto", sans-serif;
+  font-size: 14px;
+  color: #333;
+}
+
+/* ─── Control panel ───────────────────────────── */
+#control_panel select,
+#control_panel button {
+  margin-left: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+}
+
+/* ─── outer/inner chart ───────────────────────── */
+#chart_outer {
+  overflow-x: auto;
+  width: 100%;
+  padding: 0 20px;
+  margin-top: 60px;
+}
+#chart_div {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+
+/* ─── wrapper + connector ─────────────────────── */
+.wrapper {
+  flex: 0 0 auto;
+  position: relative;
+  padding-top: 24px;
+  margin: 0 24px;
+  text-align: center;
+}
+.wrapper::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 50%;
+  height: 24px;
+  border-left: 1px solid #ddd;
+}
+
+/* ─── node box ─────────────────────────────────── */
+.node {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  padding: 12px 16px;
+  display: inline-flex;
+  align-items: center;
+  transition: box-shadow 0.2s ease;
+  white-space: nowrap;
+}
+.node:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* toggle [+]/[-] */
+.node .toggle {
+  order: 3;
+  margin-left: auto;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* left avatar */
+.node img.avatar-left {
+  order: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  object-fit: cover;
+  margin-right: 12px;
+}
+
+/* info block centered */
+.node .info {
+  order: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.3;
+}
+.node .info > div:first-child { /* Name */
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.node .info > div:nth-child(2) { /* Role */
+  font-weight: 700;
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 6px;
+}
+
+/* direct/indirect counts */
+.report-count {
+  font-size: 12px;
+  color: #777;
+  margin-top: 2px;
+}
+
+/* right avatar (root only) */
+.node img.avatar-right {
+  order: 2;
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  object-fit: cover;
+  margin-left: 12px;
+}
+
+/* children row */
+.children {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  margin-top: 24px;
+  position: relative;
+}
+.children::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  border-top: 1px solid #ddd;
+}
+
+/* ─── Pastel color coding by depth ───────────── */
+.wrapper.depth-0 .node { background: #f5f7fa; border-left: 4px solid #cfd8dc; }
+.wrapper.depth-1 .node { background: #e8f0fb; border-left: 4px solid #90caf9; }
+.wrapper.depth-2 .node { background: #f0f8ed; border-left: 4px solid #a5d6a7; }
+.wrapper.depth-3 .node { background: #fff9e6; border-left: 4px solid #ffe082; }
